@@ -9,8 +9,8 @@ fn main() {
     let user_input = remove_head_and_tail_double_quotation(user_input);
     println!("user_input: {}", user_input);  // FIXME: 240112 remove me !!!
 
-    let path_list = retrieve_files(&user_input as &str, "py");
-    println!("{:?}", path_list);  // FIXME: 240112 remove me !!!
+    let path_list = retrieve_files(&user_input as &str, "rs");  // TODO: 240112 拡張子は外部から指定できるようにせよ。
+    println!("path_list: {:?}", path_list);  // FIXME: 240112 remove me !!!
 
     stop();
 }
@@ -43,17 +43,14 @@ fn remove_head_and_tail_double_quotation(arg: String)  -> String {
 fn retrieve_files(base_dir: &str, target_extension: &str) -> Option<Vec<String>> {  // TODO: 240112 複数の拡張子にも対応すること (１つのプロジェクトから、拡張子を複数とかできないのかな？)
     let mut result: Vec<String> = Vec::new();
     for entry in WalkDir::new(base_dir) {  // FIXME: 240112 .max_depth() を設定しない場合、どれくらいの階層まで探すかよくわからない。
-        match entry {
-            Ok(entry) => {
-                if entry.file_type().is_file() { // INFO: 240108 .extension() といいながらも、hoge.txt というフォルダでも、txt を取得してしまうため、.is_file() によるチェックを入れた。
-                    if let Some(extension) = entry.path().extension() {
-                        if extension == target_extension {  // INFO: 240108 同様にエクセルマクロファイルを取得するようにする。
-                            result.push(entry.path().display().to_string());
-                        }
+        if let Ok(val) = entry {
+            if val.file_type().is_file() { // INFO: 240108 .extension() といいながらも、hoge.txt というフォルダでも、txt を取得してしまうため、.is_file() によるチェックを入れた。
+                if let Some(extension) = val.path().extension() {
+                    if extension == target_extension {  // INFO: 240108 同様にエクセルマクロファイルを取得するようにする。
+                        result.push(val.path().display().to_string());
                     }
                 }
-            },
-            Err(err) => eprintln!("Error: {}", err),
+            }
         }
     }
     if result.len() > 0 {
