@@ -1,13 +1,16 @@
 use std::io;
 use walkdir::WalkDir;
+use std::fs::File;
+use std::io::prelude::*;
+
 
 fn main() {
     let user_input = obtain_user_input();
     let user_input = remove_head_and_tail_double_quotation(user_input);
-    println!("user_input: {}", user_input);  // EDIT: 240112 remove me !!!
+    println!("user_input: {}", user_input);  // FIXME: 240112 remove me !!!
 
     let path_list = retrieve_files(&user_input as &str, "py");
-    println!("{:?}", path_list);  // EDIT: 240112 remove me !!!
+    println!("{:?}", path_list);  // FIXME: 240112 remove me !!!
 
     stop();
 }
@@ -37,7 +40,7 @@ fn remove_head_and_tail_double_quotation(arg: String)  -> String {
 
 
 /// base_dir 配下の、拡張子が extension のファイルのリストを取得する。
-fn retrieve_files(base_dir: &str, target_extension: &str) -> Option<Vec<String>> {  // TODO: 240112 複数の拡張子にも対応すること
+fn retrieve_files(base_dir: &str, target_extension: &str) -> Option<Vec<String>> {  // TODO: 240112 複数の拡張子にも対応すること (１つのプロジェクトから、拡張子を複数とかできないのかな？)
     let mut result: Vec<String> = Vec::new();
     for entry in WalkDir::new(base_dir) {  // FIXME: 240112 .max_depth() を設定しない場合、どれくらいの階層まで探すかよくわからない。
         match entry {
@@ -61,7 +64,13 @@ fn retrieve_files(base_dir: &str, target_extension: &str) -> Option<Vec<String>>
 }
 
 
-
+fn open_text_file(path: &str) -> Result<String, io::Error> {
+    let mut f = File::open(path)?;
+    let mut result = String::new();
+    
+    f.read_to_string(&mut result)?;
+    Ok(result)
+}
 
 
 fn stop() {
@@ -79,5 +88,12 @@ mod tests {
         use crate::retrieve_files;
         let results = retrieve_files(".\\src", "rs").unwrap();  // FIXME: 240112 開発が進み、main.rs 以外にファイルが増えた場合に修正が必要。
         assert_eq!(results, vec!(".\\src\\main.rs"));
+    }
+
+    #[test]
+    fn test_open_text_file() {
+        use crate::open_text_file;
+        let result = open_text_file(".\\misc\\test1.txt").unwrap();  // HACK: 240112 ./misc にテキストファイルを入れてテストが微妙な気もするので、何か考えるべきかも？
+        assert_eq!(result, String::from("あいうえお"));
     }
 }
