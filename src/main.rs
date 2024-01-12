@@ -7,10 +7,20 @@ use std::io::prelude::*;
 fn main() {
     let user_input = obtain_user_input();
     let user_input = remove_head_and_tail_double_quotation(user_input);
-    println!("user_input: {}", user_input);  // FIXME: 240112 remove me !!!
+    let extension = "rs";  // TODO: 240112 拡張子は外部から指定できるようにせよ。
 
-    let path_list = retrieve_files(&user_input as &str, "rs");  // TODO: 240112 拡張子は外部から指定できるようにせよ。
-    println!("path_list: {:?}", path_list);  // FIXME: 240112 remove me !!!
+    match retrieve_files(&user_input as &str, extension) {  // HACK: 240112 ネストが深すぎる気がする。
+        Some(path_list) => {
+            for path in path_list {
+                if let Ok(text) = open_text_file(&path) {
+                    println!("{}", text);
+                }
+            }
+        },
+        None => {
+            println!("No File Existed");  // INFO: 240112 これくらいは標準出力に出してあげないと、何も表示されない場合があって不親切かも？
+        }
+    }
 
     stop();
 }
@@ -27,7 +37,7 @@ fn obtain_user_input() -> String {
 
 /// 先頭と末尾のダブルクオーテーションがあれば削除する関数。
 /// エクスプローラーでフォルダ右クリックしてパスのコピーすると、先頭と末尾にダブルクオーテーションが付くのだが、それを除去する目的。
-fn remove_head_and_tail_double_quotation(arg: String)  -> String {
+fn remove_head_and_tail_double_quotation(arg: String) -> String {
     let mut result = arg.trim().to_string();  // INFO: 240111 標準入力で取ると末尾に改行コードが付いてるようで、それを除去するために .trim() を実施した。
     if result.starts_with("\"") {
         result.remove(0);
