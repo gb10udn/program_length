@@ -4,6 +4,9 @@ fn main() {
     let user_input = obtain_user_input();
     let user_input = remove_head_and_tail_double_quotation(user_input);
     println!("user_input: {}", user_input);
+
+    // EDIT: 240112 walkdir で py, vue, js などのファイルパスを取得するようにする。
+    stop();
 }
 
 
@@ -27,4 +30,17 @@ fn remove_head_and_tail_double_quotation(arg: String)  -> String {
         result.pop();
     }
     result.to_string()
+}
+
+
+
+
+
+
+
+fn stop() {
+    println!("");
+    println!("finished !!! Please input enter key");
+    let mut a = String::new();
+    let _  = io::stdin().read_line(&mut a).expect("");
 }
