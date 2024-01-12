@@ -1,11 +1,14 @@
 use std::io;
+use walkdir::WalkDir;
 
 fn main() {
     let user_input = obtain_user_input();
     let user_input = remove_head_and_tail_double_quotation(user_input);
-    println!("user_input: {}", user_input);
+    println!("user_input: {}", user_input);  // EDIT: 240112 remove me !!!
 
-    // EDIT: 240112 walkdir で py, vue, js などのファイルパスを取得するようにする。
+    let path_list = retrieve_files(&user_input as &str, "py");
+    println!("{:?}", path_list);  // EDIT: 240112 remove me !!!
+
     stop();
 }
 
@@ -33,6 +36,29 @@ fn remove_head_and_tail_double_quotation(arg: String)  -> String {
 }
 
 
+/// base_dir 配下の、拡張子が extension のファイルのリストを取得する。
+fn retrieve_files(base_dir: &str, target_extension: &str) -> Option<Vec<String>> {  // TODO: 240112 複数の拡張子にも対応すること
+    let mut result: Vec<String> = Vec::new();
+    for entry in WalkDir::new(base_dir) {  // FIXME: 240112 .max_depth() を設定しない場合、どれくらいの階層まで探すかよくわからない。
+        match entry {
+            Ok(entry) => {
+                if entry.file_type().is_file() { // INFO: 240108 .extension() といいながらも、hoge.txt というフォルダでも、txt を取得してしまうため、.is_file() によるチェックを入れた。
+                    if let Some(extension) = entry.path().extension() {
+                        if extension == target_extension {  // INFO: 240108 同様にエクセルマクロファイルを取得するようにする。
+                            result.push(entry.path().display().to_string());
+                        }
+                    }
+                }
+            },
+            Err(err) => eprintln!("Error: {}", err),
+        }
+    }
+    if result.len() > 0 {
+        return Some(result);
+    } else {
+        return None;
+    }
+}
 
 
 
