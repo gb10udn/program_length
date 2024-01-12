@@ -1,7 +1,7 @@
 use std::io;
-use walkdir::WalkDir;
-use std::fs::File;
 use std::io::prelude::*;
+use std::fs::File;
+use walkdir::WalkDir;
 
 
 fn main() {
@@ -9,20 +9,21 @@ fn main() {
     let user_input = remove_head_and_tail_double_quotation(user_input);
     let extension = "rs";  // TODO: 240112 拡張子は外部から指定できるようにせよ。
 
-    match retrieve_files(&user_input as &str, extension) {  // HACK: 240112 ネストが深すぎる気がする。
-        Some(path_list) => {
-            for path in path_list {
-                if let Ok(text) = open_text_file(&path) {
-                    println!("{}", text);
-                }
-            }
-        },
+    let path_list = match retrieve_files(&user_input as &str, extension) {
+        Some(val) => val,
         None => {
-            println!("No File Existed");  // INFO: 240112 これくらいは標準出力に出してあげないと、何も表示されない場合があって不親切かも？
+            println!("Error: No file exists (user_input: {}, extension: {})", user_input, extension);
+            panic!();
+        },
+    };
+
+    for path in path_list {
+        if let Ok(text) = open_text_file(&path) {
+            println!("{}", text);
         }
     }
 
-    stop();
+    // stop();  // TODO: 240113 本番では有効にする。
 }
 
 
