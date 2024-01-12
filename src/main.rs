@@ -70,3 +70,14 @@ fn stop() {
     let mut a = String::new();
     let _  = io::stdin().read_line(&mut a).expect("");
 }
+
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_retrieve_files() {
+        use crate::retrieve_files;
+        let results = retrieve_files(".\\src", "rs").unwrap();  // FIXME: 240112 開発が進み、main.rs 以外にファイルが増えた場合に修正が必要。
+        assert_eq!(results, vec!(".\\src\\main.rs"));
+    }
+}
