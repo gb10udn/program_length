@@ -2,9 +2,10 @@ use std::io;
 use std::io::prelude::*;
 use std::fs::File;
 use walkdir::WalkDir;
+use tabled::{Table, Tabled, settings::Style};
 
 
-// tokei という Rust 製のソースコード長を取得するコマンドラインツールが使いやすかったのでそれを使う。(なので、これは練習用。)
+// tokei という Rust 製のソースコード長を取得するコマンドラインツールが使いやすかったのでそれを使う。
 // https://github.com/XAMPPRocky/tokei
 // .vue ファイルのカウントが弱い issue が 2021 年に上がっているが、2024-01 時点で改善されていないので、その部分は作る価値があるかも？
 // https://github.com/XAMPPRocky/tokei/issues/784
@@ -13,7 +14,7 @@ use walkdir::WalkDir;
 fn main() {
     let user_input = obtain_user_input();
     let user_input = remove_head_and_tail_double_quotation(user_input);
-    let extension = "rs";  // TODO: 240112 拡張子は外部から指定できるようにせよ。
+    let extension = "rs";  // TODO: 240112 拡張子は外部から指定できるようにせよ。(推定というか、自身が使うコードの拡張子を全部入れておけば良さそう。)
 
     let flist = match retrieve_files(&user_input as &str, extension) {
         Some(val) => val,
@@ -23,13 +24,34 @@ fn main() {
         },
     };
 
-    // for path in flist {
-    //     if let Ok(text) = open_text_file(&path) {
-    //         println!("{}", text);
-    //     }
-    // }
+    let mut total_code_length: usize = 0;
+    let total_file_num = flist.len();
+    for path in flist {
+        if let Ok(code_length) = count_row_num(&path) {
+            total_code_length += code_length;
+        }
+    };
+    let summary = Summary{
+        extension: extension.to_string(),
+        total_file_num: total_file_num,
+        total_code_length: total_code_length,
+    };
 
-    // stop();  // TODO: 240113 本番では有効にする。
+    let summaries = vec![summary];
+
+    let mut table = Table::new(summaries);
+    table.with(Style::markdown());
+    print!("{}", table.to_string());
+
+    stop();  // TODO: 240113 本番では有効にする。
+}
+
+
+#[derive(Tabled)]
+struct Summary {
+    extension: String,
+    total_file_num: usize,
+    total_code_length: usize,
 }
 
 
@@ -95,7 +117,7 @@ fn count_row_num(path: &str) -> Result<usize, io::Error> {
 }
 
 
-fn _stop() {
+fn stop() {
     println!("");
     println!("finished !!! Please input enter key");
     let mut a = String::new();
