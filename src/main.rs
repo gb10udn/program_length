@@ -15,36 +15,42 @@ use tabled::{Table, Tabled, settings::Style};
 fn main() {
     let user_input = obtain_user_input();
     let user_input = remove_head_and_tail_double_quotation(user_input);
-    let extension = "rs";  // TODO: 240112 拡張子は外部から指定できるようにせよ。(推定というか、自身が使うコードの拡張子を全部入れておけば良さそう。)
+    let extensions = vec!["rs", "py", "vue", "js"];
 
-    let flist = match retrieve_path_vec_by_one_extension(&user_input as &str, extension) {
+    let path_info = match retrieve_path_hash_map(&user_input, &extensions) {
         Some(val) => val,
         None => {
-            println!("Error: No file exists (user_input: {}, extension: {})", user_input, extension);
-            panic!();
+            println!("No file exists (user_input: {}, extension: {:?})", user_input, extensions);
+            return
         },
     };
 
-    let mut total_code_length: usize = 0;
-    let total_file_num = flist.len();
-    for path in flist {
-        if let Ok(code_length) = count_row_num(&path) {
-            total_code_length += code_length;
+    let mut summaries = vec![];  // HACK: 240113 以下の塊を別の関数にして、テスト可能な形式にするといいかも？
+    for ext in extensions {
+        if let Some(flist) = path_info.get(ext) {
+            let mut total_code_length: usize = 0;
+            let total_file_num = flist.len();
+            for path in flist {
+                if let Ok(code_length) = count_row_num(&path) {
+                    total_code_length += code_length;
+                }
+            };
+            let summary = Summary{
+                extension: ext.to_string(),
+                total_file_num: total_file_num,
+                total_code_length: total_code_length,
+            };
+            summaries.push(summary)
         }
-    };
-    let summary = Summary{
-        extension: extension.to_string(),
-        total_file_num: total_file_num,
-        total_code_length: total_code_length,
-    };
+    }
 
-    let summaries = vec![summary];
-
-    let mut table = Table::new(summaries);
+    let mut table = Table::new(summaries);  // TODO: 240113 tauri の練習にしてもいいかも？
     table.with(Style::markdown());
-    print!("{}", table.to_string());
+    print!("\n\n{}\n\n", table.to_string());
 
-    stop();  // TODO: 240113 本番では有効にする。
+    // TODO: 240113 ファイル別の長さも取得できるようにすると便利かも？
+
+    stop();
 }
 
 
@@ -102,11 +108,11 @@ fn retrieve_path_vec_by_one_extension(base_dir: &str, target_extension: &str) ->
 }
 
 
-fn retrieve_path_hash_map<'a>(base_dir: &'a str, target_extensions: Vec<&'a str>) -> Option<HashMap<&'a str, Vec<String>>> {
+fn retrieve_path_hash_map<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>) -> Option<HashMap<&'a str, Vec<String>>> {
     let mut result = HashMap::new();
     for ext in target_extensions {
         if let Some(path_vec) = retrieve_path_vec_by_one_extension(base_dir, ext) {  // HACK: 240113 WalkDir が複数走るのがパフォーマンス的に微妙。
-            result.insert(ext, path_vec);
+            result.insert(*ext, path_vec);
         }
     }
     if result.len() > 0 {
@@ -143,12 +149,13 @@ fn stop() {
 
 #[cfg(test)]
 mod tests {
-    const TEST_PATH: &str = "./misc/test1.txt";
+    const TEST_PATH: &str = ".\\misc\\test1.txt";
+    const TEST_DIR: &str = ".\\misc";
     #[test]
     fn test_retrieve_path_vec_by_one_extension() {
         use crate::retrieve_path_vec_by_one_extension;
-        let results = retrieve_path_vec_by_one_extension(".\\src", "rs").unwrap();  // FIXME: 240112 開発が進み、main.rs 以外にファイルが増えた場合に修正が必要。
-        assert_eq!(results, vec!(".\\src\\main.rs"));
+        let results = retrieve_path_vec_by_one_extension(TEST_DIR, "txt").unwrap();  // FIXME: 240112 開発が進み、main.rs 以外にファイルが増えた場合に修正が必要。
+        assert_eq!(results, vec!(".\\misc\\test1.txt"));
     }
 
     #[test]
@@ -168,7 +175,7 @@ mod tests {
         use crate::retrieve_path_hash_map;
         use std::collections::HashMap;
 
-        let result = retrieve_path_hash_map(".\\misc", vec!["txt"]).unwrap();
+        let result = retrieve_path_hash_map(TEST_DIR, &vec!["txt"]).unwrap();
         let mut expect = HashMap::new();
         expect.insert("txt", vec![".\\misc\\test1.txt".to_string()]);
         assert_eq!(result, expect);
