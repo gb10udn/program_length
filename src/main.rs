@@ -1,6 +1,7 @@
 use std::io;
 use std::io::prelude::*;
 use std::fs::File;
+use std::collections::HashMap;
 use walkdir::WalkDir;
 use tabled::{Table, Tabled, settings::Style};
 
@@ -16,7 +17,7 @@ fn main() {
     let user_input = remove_head_and_tail_double_quotation(user_input);
     let extension = "rs";  // TODO: 240112 拡張子は外部から指定できるようにせよ。(推定というか、自身が使うコードの拡張子を全部入れておけば良さそう。)
 
-    let flist = match retrieve_files(&user_input as &str, extension) {
+    let flist = match retrieve_path_vec_by_one_extension(&user_input as &str, extension) {
         Some(val) => val,
         None => {
             println!("Error: No file exists (user_input: {}, extension: {})", user_input, extension);
@@ -80,9 +81,9 @@ fn remove_head_and_tail_double_quotation(arg: String) -> String {
 
 /// base_dir 配下の、拡張子が extension のファイルのリストを取得する。
 /// HACK: 240113 ネストが深くて読みにくいので、修正せよ。
-fn retrieve_files(base_dir: &str, target_extension: &str) -> Option<Vec<String>> {  // TODO: 240112 複数の拡張子にも対応すること (１つのプロジェクトから、拡張子を複数とかできないのかな？)
+fn retrieve_path_vec_by_one_extension(base_dir: &str, target_extension: &str) -> Option<Vec<String>> {  // TODO: 240112 複数の拡張子にも対応すること (１つのプロジェクトから、拡張子を複数とかできないのかな？)
     let mut result: Vec<String> = Vec::new();
-    for entry in WalkDir::new(base_dir) {  // FIXME: 240112 .max_depth() を設定しない場合、どれくらいの階層まで探すかよくわからない。
+    for entry in WalkDir::new(base_dir) {
         if let Ok(val) = entry {
             if val.file_type().is_file() { // INFO: 240108 .extension() といいながらも、hoge.txt というフォルダでも、txt を取得してしまうため、.is_file() によるチェックを入れた。
                 if let Some(extension) = val.path().extension() {
@@ -101,7 +102,22 @@ fn retrieve_files(base_dir: &str, target_extension: &str) -> Option<Vec<String>>
 }
 
 
-#[allow(dead_code)]  // INFO: 240113 将来用。改行コード等をカウントする用途。
+fn retrieve_path_hash_map<'a>(base_dir: &'a str, target_extensions: Vec<&'a str>) -> Option<HashMap<&'a str, Vec<String>>> {
+    let mut result = HashMap::new();
+    for ext in target_extensions {
+        if let Some(path_vec) = retrieve_path_vec_by_one_extension(base_dir, ext) {  // HACK: 240113 WalkDir が複数走るのがパフォーマンス的に微妙。
+            result.insert(ext, path_vec);
+        }
+    }
+    if result.len() > 0 {
+        Some(result)
+    } else {
+        None
+    }
+}
+
+
+#[allow(dead_code)]  // TODO: 240113 将来用。改行コード等をカウントする用途。
 fn open_text_file(path: &str) -> Result<String, io::Error> {
     let mut f = File::open(path)?;
     let mut result = String::new();
@@ -129,9 +145,9 @@ fn stop() {
 mod tests {
     const TEST_PATH: &str = "./misc/test1.txt";
     #[test]
-    fn test_retrieve_files() {
-        use crate::retrieve_files;
-        let results = retrieve_files(".\\src", "rs").unwrap();  // FIXME: 240112 開発が進み、main.rs 以外にファイルが増えた場合に修正が必要。
+    fn test_retrieve_path_vec_by_one_extension() {
+        use crate::retrieve_path_vec_by_one_extension;
+        let results = retrieve_path_vec_by_one_extension(".\\src", "rs").unwrap();  // FIXME: 240112 開発が進み、main.rs 以外にファイルが増えた場合に修正が必要。
         assert_eq!(results, vec!(".\\src\\main.rs"));
     }
 
@@ -145,5 +161,16 @@ mod tests {
     fn test_count_row_num() {
         use crate::count_row_num;
         assert_eq!(count_row_num(TEST_PATH).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_retrieve_path_hash_map() {
+        use crate::retrieve_path_hash_map;
+        use std::collections::HashMap;
+
+        let result = retrieve_path_hash_map(".\\misc", vec!["txt"]).unwrap();
+        let mut expect = HashMap::new();
+        expect.insert("txt", vec![".\\misc\\test1.txt".to_string()]);
+        assert_eq!(result, expect);
     }
 }
