@@ -14,8 +14,8 @@ use tabled::{Table, Tabled, settings::Style};
 
 fn main() {
     let user_input = obtain_user_input();
-    let user_input = remove_head_and_tail_double_quotation(user_input);
-    let extensions = vec!["rs", "py", "vue", "js"];
+    let user_input = remove_head_and_tail_double_quotation(user_input);  // TODO: 240114 空白の場合は、そのディレクトリ配下を対象とするといいかも？
+    let extensions = vec!["rs", "py", "vue", "js","html", "css"];  // HACK: 240114 config ファイルから選べるようにする？ (or 全テキストファイルを対象とする？)
 
     let path_info = match retrieve_path(&user_input, &extensions) {
         Some(val) => val,
@@ -25,7 +25,8 @@ fn main() {
         },
     };
 
-    let mut summaries = vec![];  // HACK: 240113 以下の塊を別の関数にして、テスト可能な形式にするといいかも？
+    let mut summaries = vec![];
+    let mut each_files = vec![];
     for ext in extensions {
         if let Some(flist) = path_info.get(ext) {
             let mut total_code_length: usize = 0;
@@ -33,9 +34,15 @@ fn main() {
             for path in flist {
                 if let Ok(code_length) = count_row_num(&path) {
                     total_code_length += code_length;
+                    let each_file = EachFile {
+                        extension: ext.to_string(),
+                        path: path.to_string(),
+                        code_length: code_length,
+                    };
+                    each_files.push(each_file);
                 }
             };
-            let summary = Summary{
+            let summary = Summary {
                 extension: ext.to_string(),
                 total_file_num: total_file_num,
                 total_code_length: total_code_length,
@@ -44,11 +51,12 @@ fn main() {
         }
     }
 
-    let mut table = Table::new(summaries);  // TODO: 240113 tauri の練習にしてもいいかも？
-    table.with(Style::markdown());
-    print!("\n\n{}\n\n", table.to_string());
-
-    // TODO: 240113 ファイル別の長さも取得できるようにすると便利かも？
+    let mut table_summary = Table::new(summaries);  // TODO: 240113 tauri の練習にしてもいいかも？
+    let mut table_each_files = Table::new(each_files);
+    table_summary.with(Style::markdown());
+    table_each_files.with(Style::markdown());
+    print!("\n\n{}\n\n", table_summary.to_string());  // TODO: 240114 長さを 10 段階表記でグラフィカルに表示するといいかも？
+    print!("\n\n{}\n\n", table_each_files.to_string());
 
     stop();
 }
@@ -59,6 +67,13 @@ struct Summary {
     extension: String,
     total_file_num: usize,
     total_code_length: usize,
+}
+
+#[derive(Tabled)]
+struct EachFile {
+    extension: String,
+    path: String,
+    code_length: usize,
 }
 
 
@@ -139,7 +154,7 @@ mod tests {
     #[test]
     fn test_open_text_file() {
         use crate::open_text_file;
-        assert_eq!(open_text_file(TEST_PATH).unwrap(), String::from("あいうえお"));  // HACK: 240112 ./misc にテキストファイルを入れてテストが微妙な気もするので、何か考えるべきかも？
+        assert_eq!(open_text_file(TEST_PATH).unwrap(), String::from("あいうえお"));  // HACK: 240112 ./misc にテキストファイルを入れてテストが微妙な気もするので、何か考えるべきかも？ (tokei が参考になるかも？)
     }
 
     #[test]
