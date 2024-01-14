@@ -10,14 +10,14 @@ use tabled::{Table, Tabled, settings::Style};
 // https://github.com/XAMPPRocky/tokei
 // .vue ファイルのカウントが弱い issue が 2021 年に上がっているが、2024-01 時点で改善されていないので、その部分は作る価値があるかも？
 // https://github.com/XAMPPRocky/tokei/issues/784
-// あとは、関数とかクラスの数を数えても面白いかも？
+// あとは、関数とかクラスの数を数えても面白いかも？ 
 
 fn main() {
     let user_input = obtain_user_input();
     let user_input = remove_head_and_tail_double_quotation(user_input);
     let extensions = vec!["rs", "py", "vue", "js"];
 
-    let path_info = match retrieve_path_hash_map(&user_input, &extensions) {
+    let path_info = match retrieve_path(&user_input, &extensions) {
         Some(val) => val,
         None => {
             println!("No file exists (user_input: {}, extension: {:?})", user_input, extensions);
@@ -85,34 +85,18 @@ fn remove_head_and_tail_double_quotation(arg: String) -> String {
 }
 
 
-/// base_dir 配下の、拡張子が extension のファイルのリストを取得する。
-/// HACK: 240113 ネストが深くて読みにくいので、修正せよ。
-fn retrieve_path_vec_by_one_extension(base_dir: &str, target_extension: &str) -> Option<Vec<String>> {  // TODO: 240112 複数の拡張子にも対応すること (１つのプロジェクトから、拡張子を複数とかできないのかな？)
-    let mut result: Vec<String> = Vec::new();
+fn retrieve_path<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>) -> Option<HashMap<String, Vec<String>>> {
+    let mut result = HashMap::new();
     for entry in WalkDir::new(base_dir) {
         if let Ok(val) = entry {
             if val.file_type().is_file() { // INFO: 240108 .extension() といいながらも、hoge.txt というフォルダでも、txt を取得してしまうため、.is_file() によるチェックを入れた。
                 if let Some(extension) = val.path().extension() {
-                    if extension == target_extension {  // INFO: 240108 同様にエクセルマクロファイルを取得するようにする。
-                        result.push(val.path().display().to_string());
+                    let extension = extension.to_str().unwrap();  // FIXME: 240114 unwrap() に失敗するケースを記述しきれていない。
+                    if target_extensions.contains(&extension) {
+                        result.entry(extension.to_string()).or_insert(Vec::new()).push(val.path().display().to_string());
                     }
                 }
             }
-        }
-    }
-    if result.len() > 0 {
-        return Some(result);
-    } else {
-        return None;
-    }
-}
-
-
-fn retrieve_path_hash_map<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>) -> Option<HashMap<&'a str, Vec<String>>> {
-    let mut result = HashMap::new();
-    for ext in target_extensions {
-        if let Some(path_vec) = retrieve_path_vec_by_one_extension(base_dir, ext) {  // HACK: 240113 WalkDir が複数走るのがパフォーマンス的に微妙。
-            result.insert(*ext, path_vec);
         }
     }
     if result.len() > 0 {
@@ -151,12 +135,6 @@ fn stop() {
 mod tests {
     const TEST_PATH: &str = ".\\misc\\test1.txt";
     const TEST_DIR: &str = ".\\misc";
-    #[test]
-    fn test_retrieve_path_vec_by_one_extension() {
-        use crate::retrieve_path_vec_by_one_extension;
-        let results = retrieve_path_vec_by_one_extension(TEST_DIR, "txt").unwrap();  // FIXME: 240112 開発が進み、main.rs 以外にファイルが増えた場合に修正が必要。
-        assert_eq!(results, vec!(".\\misc\\test1.txt"));
-    }
 
     #[test]
     fn test_open_text_file() {
@@ -171,13 +149,15 @@ mod tests {
     }
 
     #[test]
-    fn test_retrieve_path_hash_map() {
-        use crate::retrieve_path_hash_map;
+    fn test_retrieve_path() {
+        use crate::retrieve_path;
         use std::collections::HashMap;
 
-        let result = retrieve_path_hash_map(TEST_DIR, &vec!["txt"]).unwrap();
+        let result = retrieve_path(TEST_DIR, &vec!["txt", "py"]).unwrap();
+
         let mut expect = HashMap::new();
-        expect.insert("txt", vec![".\\misc\\test1.txt".to_string()]);
+        expect.insert("txt".to_string(), vec![".\\misc\\test1.txt".to_string()]);
+        expect.insert("py".to_string(), vec![".\\misc\\test2.py".to_string()]);
         assert_eq!(result, expect);
     }
 }
