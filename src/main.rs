@@ -13,8 +13,11 @@ use tabled::{Table, Tabled, settings::Style};
 // あとは、関数とかクラスの数を数えても面白いかも？ 
 
 fn main() {
-    let user_input = obtain_user_input();
-    let user_input = remove_head_and_tail_double_quotation(user_input);  // TODO: 240114 空白の場合は、そのディレクトリ配下を対象とするといいかも？
+    let mut user_input = obtain_user_input();
+    user_input = remove_head_and_tail_double_quotation(user_input);
+    if user_input.len() == 0 {
+        user_input = String::from(".");  // INFO: 240114 指定ない場合 (.len() == 0) 実行ディレクトリ配下を検索する。
+    }
     let extensions = vec!["rs", "py", "vue", "js","html", "css"];  // HACK: 240114 config ファイルから選べるようにする？ (or 全テキストファイルを対象とする？)
 
     let path_info = match retrieve_path(&user_input, &extensions) {
