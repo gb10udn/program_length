@@ -11,16 +11,22 @@ use tabled::{Table, Tabled, settings::Style};
 // .vue ファイルのカウントが弱い issue が 2021 年に上がっているが、2024-01 時点で改善されていないので、その部分は作る価値があるかも？
 // https://github.com/XAMPPRocky/tokei/issues/784
 // あとは、関数とかクラスの数を数えても面白いかも？ 
+// このプログラムは、.exe にして持ち運べるのも強み。(カレントディレクトリ配下を調べる用途。)
+
 
 fn main() {
+    // [START] parameters
+    let extensions = vec!["rs", "py", "vue", "js", "html", "css"];  // HACK: 240114 config ファイルから選べるようにする？ (or 全テキストファイルを対象とする？)
+    let ignore_hidden_directory = true;
+    // [END] parameters
+
     let mut user_input = obtain_user_input();
     user_input = remove_head_and_tail_double_quotation(user_input);
     if user_input.len() == 0 {
         user_input = String::from(".");  // INFO: 240114 指定ない場合 (.len() == 0) 実行ディレクトリ配下を検索する。
     }
-    let extensions = vec!["rs", "py", "vue", "js","html", "css"];  // HACK: 240114 config ファイルから選べるようにする？ (or 全テキストファイルを対象とする？)
 
-    let path_info = match retrieve_path(&user_input, &extensions) {
+    let path_info = match retrieve_path(&user_input, &extensions, ignore_hidden_directory) {
         Some(val) => val,
         None => {
             println!("No file exists (user_input: {}, extension: {:?})", user_input, extensions);
@@ -54,11 +60,11 @@ fn main() {
         }
     }
 
-    let mut table_summary = Table::new(summaries);  // TODO: 240113 tauri の練習にしてもいいかも？
+    let mut table_summary = Table::new(summaries);
     let mut table_each_files = Table::new(each_files);
     table_summary.with(Style::markdown());
     table_each_files.with(Style::markdown());
-    print!("\n\n{}\n\n", table_summary.to_string());  // TODO: 240114 長さを 10 段階表記でグラフィカルに表示するといいかも？
+    print!("\n\n{}\n\n", table_summary.to_string());  // TODO: 240114 長さを 10 段階表記でグラフィカルに表示できるようにする。
     print!("\n\n{}\n\n", table_each_files.to_string());
 
     stop();
@@ -103,7 +109,7 @@ fn remove_head_and_tail_double_quotation(arg: String) -> String {
 }
 
 
-fn retrieve_path<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>) -> Option<HashMap<String, Vec<String>>> {
+fn retrieve_path<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>, ignore_hidden_directory: bool) -> Option<HashMap<String, Vec<String>>> {
     let mut result = HashMap::new();
     for entry in WalkDir::new(base_dir) {
         if let Ok(val) = entry {
@@ -111,7 +117,10 @@ fn retrieve_path<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>) -> Opt
                 if let Some(extension) = val.path().extension() {
                     let extension = extension.to_str().unwrap();  // FIXME: 240114 unwrap() に失敗するケースを記述しきれていない。
                     if target_extensions.contains(&extension) {
-                        result.entry(extension.to_string()).or_insert(Vec::new()).push(val.path().display().to_string());
+                        let path = val.path().display().to_string();
+                        if ignore_hidden_directory == false || (ignore_hidden_directory == true && include_hidden_directory(&path) == false) {
+                            result.entry(extension.to_string()).or_insert(Vec::new()).push(path);
+                        }
                     }
                 }
             }
@@ -140,6 +149,22 @@ fn count_row_num(path: &str) -> Result<usize, io::Error> {
     Ok(buf.lines().count())
 }
 
+
+fn include_hidden_directory(path: &str) -> bool {
+    let path = path.replace("/", "\\");
+    let list: Vec<&str> = path.split('\\').collect();
+    for dir in list {
+        if (dir.starts_with(".") == true) && (dir.len() > 1) {
+            if dir.starts_with("..") == false {
+                return true
+            }
+            if dir.starts_with("..") == true && dir.len() > 2 {
+                return true
+            }
+        }
+    }
+    return false;
+}
 
 fn stop() {
     println!("");
@@ -171,11 +196,37 @@ mod tests {
         use crate::retrieve_path;
         use std::collections::HashMap;
 
-        let result = retrieve_path(TEST_DIR, &vec!["txt", "py"]).unwrap();
+        let result = retrieve_path(TEST_DIR, &vec!["txt", "py"], true).unwrap();
 
         let mut expect = HashMap::new();
         expect.insert("txt".to_string(), vec![".\\misc\\test1.txt".to_string()]);
         expect.insert("py".to_string(), vec![".\\misc\\test2.py".to_string()]);
         assert_eq!(result, expect);
+    }
+
+    #[test]
+    fn test_include_hidden_directory() {
+        use crate::include_hidden_directory;
+
+        let false_path_list = vec![
+            "C:\\hoge\\fuga\\piyo.rs",
+            "./hoge/piyo.rs",
+            "../hoge/piyo.rs",
+        ];
+        for path in false_path_list {
+            assert_eq!(include_hidden_directory(path), false);
+        }
+
+        let true_path_list = vec![
+            "C:\\hoge\\fuga\\.piyo.rs",
+            "C:\\hoge\\.fuga\\piyo.rs",
+            "./.venv/Scripts/activate",
+            "./.gitignore",
+            "../.venv/Scripts/activate",
+            "../.gitignore",
+        ];
+        for path in true_path_list {
+            assert_eq!(include_hidden_directory(path), true);
+        }
     }
 }
