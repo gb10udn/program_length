@@ -13,6 +13,7 @@ use tabled::{Table, Tabled, settings::Style};
 // あとは、関数とかクラスの数を数えても面白いかも？ 
 
 
+
 fn main() {
     // [START] parameters
     let extensions = vec!["rs", "py", "vue", "js", "html", "css"];  // HACK: 240114 config ファイルから選べるようにする？ (or 全テキストファイルを対象とする？)
