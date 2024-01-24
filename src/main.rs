@@ -6,14 +6,6 @@ use walkdir::WalkDir;
 use tabled::{Table, Tabled, settings::Style};
 
 
-// tokei という Rust 製のソースコード長を取得するコマンドラインツールが使いやすかったのでそれを使う。
-// https://github.com/XAMPPRocky/tokei
-// .vue ファイルのカウントが弱い issue が 2021 年に上がっているが、2024-01 時点で改善されていないので、その部分は作る価値があるかも？
-// https://github.com/XAMPPRocky/tokei/issues/784
-// あとは、関数とかクラスの数を数えても面白いかも？ 
-
-
-
 fn main() {
     // [START] parameters
     let extensions = vec!["rs", "py", "vue", "js", "html", "css"];  // HACK: 240114 config ファイルから選べるようにする？ (or 全テキストファイルを対象とする？)
