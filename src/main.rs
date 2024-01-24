@@ -11,7 +11,6 @@ use tabled::{Table, Tabled, settings::Style};
 // .vue ファイルのカウントが弱い issue が 2021 年に上がっているが、2024-01 時点で改善されていないので、その部分は作る価値があるかも？
 // https://github.com/XAMPPRocky/tokei/issues/784
 // あとは、関数とかクラスの数を数えても面白いかも？ 
-// このプログラムは、.exe にして持ち運べるのも強み。(カレントディレクトリ配下を調べる用途。)
 
 
 fn main() {
