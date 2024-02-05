@@ -101,6 +101,8 @@ fn remove_head_and_tail_double_quotation(arg: String) -> String {
 }
 
 
+/// base_dir 配下で、target_extensions の拡張子を再帰的に検索し、ファイルパスを取得する関数。
+/// 不可視ファイル (Ex. .hoge.py) は対象外。
 fn retrieve_path<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>, ignore_hidden_directory: bool) -> Option<HashMap<String, Vec<String>>> {
     let mut result = HashMap::new();
     for entry in WalkDir::new(base_dir) {
@@ -192,7 +194,10 @@ mod tests {
 
         let mut expect = HashMap::new();
         expect.insert("txt".to_string(), vec![".\\misc\\test1.txt".to_string()]);
-        expect.insert("py".to_string(), vec![".\\misc\\test2.py".to_string()]);
+        expect.insert("py".to_string(), vec![
+            ".\\misc\\piyo1\\test4.py".to_string(),  // FIXME: 240205 Vec 型 は順番違うと別ものとされる。関係無いように修正必要。
+            ".\\misc\\test2.py".to_string(),
+        ]);
         assert_eq!(result, expect);
     }
 
