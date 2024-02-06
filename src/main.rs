@@ -12,20 +12,17 @@ fn main() {
     let ignore_hidden_directory = true;
     // [END] parameters
 
-    let mut user_input = obtain_user_input();
-    user_input = remove_head_and_tail_double_quotation(user_input);
-    if user_input.len() == 0 {
-        user_input = String::from(".");  // INFO: 240114 指定ない場合 (.len() == 0) 実行ディレクトリ配下を検索する。
-    }
+    let base_dir = obtain_base_dir_from_user_input();
 
-    let path_info = match retrieve_path(&user_input, &extensions, ignore_hidden_directory) {
+    let path_info: HashMap<String, Vec<String>> = match retrieve_path(&base_dir, &extensions, ignore_hidden_directory) {
         Some(val) => val,
         None => {
-            println!("No file exists (user_input: {}, extension: {:?})", user_input, extensions);
+            println!("No file exists (user_input: {}, extension: {:?})", base_dir, extensions);
             return
         },
     };
 
+    let mut max_code_length = 0;  // EDIT: 240205 可読性を優先して、先に取得してから
     let mut summaries = vec![];
     let mut each_files = vec![];
     for ext in extensions {
@@ -39,11 +36,12 @@ fn main() {
                         extension: ext.to_string(),
                         path: path.to_string(),
                         code_length: code_length,
+                        code_length_: "".to_string(),  // EDIT: 240205 一旦空欄で入れておいて、後で修正する。
                     };
                     each_files.push(each_file);
                 }
             };
-            let summary = Summary {
+            let summary = Summary {  // HACK: 240206 for 文の中が大きいので、each_files を取得後、それを用いて取得でもいいのかも？
                 extension: ext.to_string(),
                 total_file_num: total_file_num,
                 total_code_length: total_code_length,
@@ -56,7 +54,7 @@ fn main() {
     let mut table_each_files = Table::new(each_files);
     table_summary.with(Style::markdown());
     table_each_files.with(Style::markdown());
-    print!("\n\n{}\n\n", table_summary.to_string());  // TODO: 240114 長さを 10 段階表記でグラフィカルに表示できるようにする。
+    print!("\n\n{}\n\n", table_summary.to_string());
     print!("\n\n{}\n\n", table_each_files.to_string());
 
     stop();
@@ -75,14 +73,20 @@ struct EachFile {
     extension: String,
     path: String,
     code_length: usize,
+    code_length_: String,
 }
 
 
 /// ユーザーの入力値を取得する関数。処理に使うベースディレクトリが入力される想定。
-fn obtain_user_input() -> String {
+fn obtain_base_dir_from_user_input() -> String {
     println!("Please enter the ''base directory'' to check the code length.");
     let mut input_string = String::new();
     io::stdin().read_line(&mut input_string).expect("failed to read line ...");
+
+    input_string = remove_head_and_tail_double_quotation(input_string);
+    if input_string.len() == 0 {
+        input_string = String::from(".");  // INFO: 240114 指定ない場合 (.len() == 0) 実行ディレクトリ配下を検索する。
+    }
     input_string
 }
 
@@ -125,6 +129,30 @@ fn retrieve_path<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>, ignore
     } else {
         None
     }
+}
+
+
+/// path_info (retrieve_path より取得) を一次元の Vec 型に変換する関数。
+fn flatten_path_info(path_info: &HashMap<String, Vec<String>>) -> Vec<&str> {
+    let mut result: Vec<&str> = vec![];
+    for key in path_info.keys() {
+        for i in path_info.get(key).unwrap() {
+            result.push(i);
+        }
+    }
+    result
+}
+
+
+fn obtain_max_code_length(path_list: &Vec<&str>) -> usize {
+    let mut result = 0;
+    for path in path_list {
+        let temp_length = count_row_num(&path).unwrap();
+        if temp_length > result {
+            result = temp_length;
+        }
+    }
+    result
 }
 
 
