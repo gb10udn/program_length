@@ -21,36 +21,8 @@ fn main() {
             return
         },
     };
-
     let each_files = retrieve_each_files(&path_info);
-
-    // EDIT: 240206 each_files, summaries の取得を関数に切り出す。
-    let mut summaries = vec![];
-    let mut each_files = vec![];
-    for ext in extensions {
-        if let Some(flist) = path_info.get(ext) {
-            let mut total_code_length: usize = 0;
-            let total_file_num = flist.len();
-            for path in flist {
-                if let Ok(code_length) = count_row_num(&path) {
-                    total_code_length += code_length;
-                    let each_file = EachFile {
-                        extension: ext.to_string(),
-                        path: path.to_string(),
-                        code_length: code_length,
-                        code_length_: "".to_string(),
-                    };
-                    each_files.push(each_file);
-                }
-            };
-            let summary = Summary {
-                extension: ext.to_string(),
-                total_file_num: total_file_num,
-                total_code_length: total_code_length,
-            };
-            summaries.push(summary)
-        }
-    }
+    let summaries = retrieve_summaries_from_each_files(&each_files);
 
     let mut table_summary = Table::new(summaries);
     let mut table_each_files = Table::new(each_files);
@@ -133,7 +105,6 @@ fn retrieve_path_info<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>, i
 }
 
 
-// EDIT: 240206 each_files 取得を別関数として独立させる
 fn retrieve_each_files(path_info: &HashMap<String, Vec<String>>) -> Vec<EachFile> {
     let mut max_code_length = 0;
     let mut each_files = vec![];
@@ -166,10 +137,39 @@ fn retrieve_each_files(path_info: &HashMap<String, Vec<String>>) -> Vec<EachFile
 }
 
 
-// EDIT: 240206 each_files から、summary を作る関数を独立させる。
-fn retrieve_summaries_from_each_files(each_files: &EachFile) {
-    // let mut summaries = vec![];
-
+fn retrieve_summaries_from_each_files(each_files: &Vec<EachFile>) -> Vec<Summary> {
+    let mut file_num = HashMap::new();
+    let mut code_length = HashMap::new();
+    let mut extensions = vec![];
+    
+    for each_file in each_files {
+        let ext = each_file.extension.to_string();
+        if extensions.contains(&ext) == false {
+            extensions.push(ext.clone());
+        }
+        
+        if let Some(num) = file_num.get(&ext) {
+            file_num.insert(ext.clone(), num + 1);
+        } else {
+            file_num.insert(ext.clone(), 1);
+        }
+        
+        if let Some(length) = code_length.get(&ext) {
+            code_length.insert(ext.clone(), length + each_file.code_length);
+        } else {
+            code_length.insert(ext.clone(), each_file.code_length);
+        }
+    }
+    
+    let mut summaries = vec![];
+    for ext in extensions {
+        summaries.push(Summary {
+            extension: ext.clone(),
+            total_code_length: *code_length.get(&ext).unwrap(),
+            total_file_num: *file_num.get(&ext).unwrap(),
+        })
+    }
+    summaries
 }
 
 #[allow(dead_code)]  // TODO: 240113 将来用。改行コード等をカウントする用途。
