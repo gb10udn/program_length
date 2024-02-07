@@ -14,7 +14,7 @@ fn main() {
 
     let base_dir = obtain_base_dir_from_user_input();
 
-    let path_info: HashMap<String, Vec<String>> = match retrieve_path(&base_dir, &extensions, ignore_hidden_directory) {
+    let path_info: HashMap<String, Vec<String>> = match retrieve_path_info(&base_dir, &extensions, ignore_hidden_directory) {
         Some(val) => val,
         None => {
             println!("No file exists (user_input: {}, extension: {:?})", base_dir, extensions);
@@ -22,7 +22,9 @@ fn main() {
         },
     };
 
-    let mut max_code_length = 0;  // EDIT: 240205 可読性を優先して、先に取得してから
+    let each_files = retrieve_each_files(&path_info);
+
+    // EDIT: 240206 each_files, summaries の取得を関数に切り出す。
     let mut summaries = vec![];
     let mut each_files = vec![];
     for ext in extensions {
@@ -36,12 +38,12 @@ fn main() {
                         extension: ext.to_string(),
                         path: path.to_string(),
                         code_length: code_length,
-                        code_length_: "".to_string(),  // EDIT: 240205 一旦空欄で入れておいて、後で修正する。
+                        code_length_: "".to_string(),
                     };
                     each_files.push(each_file);
                 }
             };
-            let summary = Summary {  // HACK: 240206 for 文の中が大きいので、each_files を取得後、それを用いて取得でもいいのかも？
+            let summary = Summary {
                 extension: ext.to_string(),
                 total_file_num: total_file_num,
                 total_code_length: total_code_length,
@@ -77,15 +79,14 @@ struct EachFile {
 }
 
 
-/// ユーザーの入力値を取得する関数。処理に使うベースディレクトリが入力される想定。
 fn obtain_base_dir_from_user_input() -> String {
     println!("Please enter the ''base directory'' to check the code length.");
     let mut input_string = String::new();
     io::stdin().read_line(&mut input_string).expect("failed to read line ...");
 
-    input_string = remove_head_and_tail_double_quotation(input_string);
+    input_string = _remove_head_and_tail_double_quotation(input_string);
     if input_string.len() == 0 {
-        input_string = String::from(".");  // INFO: 240114 指定ない場合 (.len() == 0) 実行ディレクトリ配下を検索する。
+        input_string = String::from(".");  // INFO: 240114 if no input (.len() == 0), change to "." (directly below the executable file)
     }
     input_string
 }
@@ -93,7 +94,7 @@ fn obtain_base_dir_from_user_input() -> String {
 
 /// 先頭と末尾のダブルクオーテーションがあれば削除する関数。
 /// エクスプローラーでフォルダ右クリックしてパスのコピーすると、先頭と末尾にダブルクオーテーションが付くのだが、それを除去する目的。
-fn remove_head_and_tail_double_quotation(arg: String) -> String {
+fn _remove_head_and_tail_double_quotation(arg: String) -> String {
     let mut result = arg.trim().to_string();  // INFO: 240111 標準入力で取ると末尾に改行コードが付いてるようで、それを除去するために .trim() を実施した。
     if result.starts_with("\"") {
         result.remove(0);
@@ -107,7 +108,7 @@ fn remove_head_and_tail_double_quotation(arg: String) -> String {
 
 /// base_dir 配下で、target_extensions の拡張子を再帰的に検索し、ファイルパスを取得する関数。
 /// 不可視ファイル (Ex. .hoge.py) は対象外。
-fn retrieve_path<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>, ignore_hidden_directory: bool) -> Option<HashMap<String, Vec<String>>> {
+fn retrieve_path_info<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>, ignore_hidden_directory: bool) -> Option<HashMap<String, Vec<String>>> {
     let mut result = HashMap::new();
     for entry in WalkDir::new(base_dir) {
         if let Ok(val) = entry {
@@ -132,29 +133,44 @@ fn retrieve_path<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>, ignore
 }
 
 
-/// path_info (retrieve_path より取得) を一次元の Vec 型に変換する関数。
-fn flatten_path_info(path_info: &HashMap<String, Vec<String>>) -> Vec<&str> {
-    let mut result: Vec<&str> = vec![];
-    for key in path_info.keys() {
-        for i in path_info.get(key).unwrap() {
-            result.push(i);
+// EDIT: 240206 each_files 取得を別関数として独立させる
+fn retrieve_each_files(path_info: &HashMap<String, Vec<String>>) -> Vec<EachFile> {
+    let mut max_code_length = 0;
+    let mut each_files = vec![];
+    for ext in path_info.keys() {
+        if let Some(flist) = path_info.get(ext) {
+            for path in flist {
+                if let Ok(code_length) = count_row_num(&path) {
+                    let each_file = EachFile {
+                        extension: ext.to_string(),
+                        path: path.to_string(),
+                        code_length: code_length,
+                        code_length_: "".to_string(),  // INFO: 240206 "" is temporary value 
+                    };
+                    each_files.push(each_file);
+                    if code_length > max_code_length {
+                        max_code_length = code_length;
+                    }
+                }
+            };
         }
     }
-    result
+    println!("{}", max_code_length);
+
+    // TODO: 240206 以下で、ビジュアル化された、code_length (= code_length_) を再計算してグラフィカルに出力する。
+    // for file in each_files {
+    //     println!("");
+    // }
+
+    each_files
 }
 
 
-fn obtain_max_code_length(path_list: &Vec<&str>) -> usize {
-    let mut result = 0;
-    for path in path_list {
-        let temp_length = count_row_num(&path).unwrap();
-        if temp_length > result {
-            result = temp_length;
-        }
-    }
-    result
-}
+// EDIT: 240206 each_files から、summary を作る関数を独立させる。
+fn retrieve_summaries_from_each_files(each_files: &EachFile) {
+    // let mut summaries = vec![];
 
+}
 
 #[allow(dead_code)]  // TODO: 240113 将来用。改行コード等をカウントする用途。
 fn open_text_file(path: &str) -> Result<String, io::Error> {
@@ -214,11 +230,11 @@ mod tests {
     }
 
     #[test]
-    fn test_retrieve_path() {
-        use crate::retrieve_path;
+    fn test_retrieve_path_info() {
+        use crate::retrieve_path_info;
         use std::collections::HashMap;
 
-        let result = retrieve_path(TEST_DIR, &vec!["txt", "py"], true).unwrap();
+        let result = retrieve_path_info(TEST_DIR, &vec!["txt", "py"], true).unwrap();
 
         let mut expect = HashMap::new();
         expect.insert("txt".to_string(), vec![".\\misc\\test1.txt".to_string()]);
