@@ -28,8 +28,8 @@ fn main() {
     let mut table_each_files = Table::new(each_files);
     table_summary.with(Style::markdown());
     table_each_files.with(Style::markdown());
-    print!("\n\n{}\n\n", table_summary.to_string());
-    print!("\n\n{}\n\n", table_each_files.to_string());
+    print!("\n--- SUMMARY ---\n\n{}\n\n", table_summary.to_string());
+    print!("\n--- EACH ---\n\n{}\n\n", table_each_files.to_string());
 
     stop();
 }
@@ -107,33 +107,45 @@ fn retrieve_path_info<'a>(base_dir: &'a str, target_extensions: &Vec<&'a str>, i
 
 fn retrieve_each_files(path_info: &HashMap<String, Vec<String>>) -> Vec<EachFile> {
     let mut max_code_length = 0;
-    let mut each_files = vec![];
+    let mut each_files_temp = vec![];
     for ext in path_info.keys() {
         if let Some(flist) = path_info.get(ext) {
             for path in flist {
-                if let Ok(code_length) = count_row_num(&path) {
+                if let Ok(length) = count_row_num(&path) {
                     let each_file = EachFile {
                         extension: ext.to_string(),
                         path: path.to_string(),
-                        code_length: code_length,
-                        code_length_: "".to_string(),  // INFO: 240206 "" is temporary value 
+                        code_length: length,
+                        code_length_: String::from(""),  // INFO: 240206 "" is temporary value 
                     };
-                    each_files.push(each_file);
-                    if code_length > max_code_length {
-                        max_code_length = code_length;
+                    each_files_temp.push(each_file);
+                    if length > max_code_length {
+                        max_code_length = length;
                     }
                 }
             };
         }
     }
-    println!("{}", max_code_length);
-
-    // TODO: 240206 以下で、ビジュアル化された、code_length (= code_length_) を再計算してグラフィカルに出力する。
-    // for file in each_files {
-    //     println!("");
-    // }
-
+    let mut each_files = vec![];
+    for file in each_files_temp {
+        each_files.push(EachFile {
+            extension: file.extension,
+            path: file.path,
+            code_length: file.code_length,
+            code_length_: _obtain_visualized_code_length(&file.code_length, &max_code_length, "*", &20),
+        })
+    }
     each_files
+}
+
+
+/// code_length と max_code_length の比率を元に、グラフィカルな長さを返す関数。(挙動はテストコードを参照)
+fn _obtain_visualized_code_length(code_length: &usize, max_code_length: &usize, word: &str, max_word_length: &usize) -> String {
+    let round_value: f64 = 10000.0;
+    let ratio: f64 = *code_length as f64 / *max_code_length as f64;
+    let ratio: f64 = (ratio * round_value).round() / round_value;
+    let word_num: usize = ((*max_word_length as f64) * ratio).round() as usize;
+    word.repeat(word_num)
 }
 
 
@@ -172,6 +184,7 @@ fn retrieve_summaries_from_each_files(each_files: &Vec<EachFile>) -> Vec<Summary
     summaries
 }
 
+
 #[allow(dead_code)]  // TODO: 240113 将来用。改行コード等をカウントする用途。
 fn open_text_file(path: &str) -> Result<String, io::Error> {
     let mut f = File::open(path)?;
@@ -206,7 +219,7 @@ fn include_hidden_directory(path: &str) -> bool {
 
 fn stop() {
     println!("");
-    println!("finished !!! Please input enter key");
+    println!("finished !!! Please input enter key");  // TODO: 240207 
     let mut a = String::new();
     let _  = io::stdin().read_line(&mut a).expect("");
 }
@@ -269,5 +282,16 @@ mod tests {
         for path in true_path_list {
             assert_eq!(include_hidden_directory(path), true);
         }
+    }
+
+    #[test]
+    fn test_obtain_visualized_code_length() {
+        use crate::_obtain_visualized_code_length;
+        assert_eq!(_obtain_visualized_code_length(&10, &100, "*", &10), "*");
+        assert_eq!(_obtain_visualized_code_length(&11, &100, "*", &10), "*");
+        assert_eq!(_obtain_visualized_code_length(&14, &100, "*", &10), "*");
+        assert_eq!(_obtain_visualized_code_length(&15, &100, "*", &10), "**");
+        assert_eq!(_obtain_visualized_code_length(&25, &100, "*", &10), "***");
+        assert_eq!(_obtain_visualized_code_length(&35, &100, "*", &10), "****");
     }
 }
