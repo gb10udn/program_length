@@ -8,7 +8,7 @@ use tabled::{Table, Tabled, settings::Style};
 
 fn main() {
     // [START] parameters
-    let extensions = vec!["rs", "py", "vue", "js", "html", "css"];  // HACK: 240114 config ファイルから選べるようにする？ (or 全テキストファイルを対象とする？)
+    let extensions = vec!["rs", "py", "vue", "js", "html", "css", "ps1", "psd1", "psm1"];  // HACK: 240209 マジックナンバー見る or この Vec 型を別のコンフィグファイルに書き出す。
     let ignore_hidden_directory = true;
     // [END] parameters
 
@@ -219,9 +219,11 @@ fn include_hidden_directory(path: &str) -> bool {
 
 fn stop() {
     println!("");
-    println!("finished !!! Please input enter key");  // TODO: 240207 
-    let mut a = String::new();
-    let _  = io::stdin().read_line(&mut a).expect("");
+    println!("finished !!!");
+    loop {
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).expect("");
+    }
 }
 
 
